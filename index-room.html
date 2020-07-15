@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+
+<!--    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">-->
+</head>
+<style>
+    ul{
+        list-style:none;
+        padding-left:0px;
+    }
+</style>
+<body>
+<div>
+<h3 align="center">Inquiry Chat</h3>
+
+    <div style="height: 500px;width: 100%;border: 1px solid black;overflow: auto">
+        <ul id="chat"></ul>
+    </div>
+
+
+<div class="container" style="position:absolute; left:10%">
+
+    <!-- <form class="form-inline"> -->
+    <div  align="center">
+    <form id="formA" class="form-horizontal">
+<!--        <div class="form-group">-->
+<!--            <label for="name" class="col-sm-2 control-label">Name</label>-->
+<!--            <div class="col-sm-10">-->
+<!--                <input type="text" class="form-control" id="name" placeholder="Name">-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="form-group">
+            <label for="room" class="col-sm-2 control-label">Room</label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="room" placeholder="Room">
+            </div>
+        </div>-->
+        <div class="form-group">
+            <div>
+                <input type="text" class="form-control" id="msg" placeholder="Message" style="width: 600px" align="center"/>
+                <button type="submit" class="btn btn-default">보내기</button>
+            </div>
+        </div>
+        <div class="form-group" >
+            <div class="col-sm-offset-2 col-sm-10">
+
+            </div>
+        </div>
+    </form>
+    </div>
+
+    <div>
+    <form id=enter class="form-horizontal" align="bottom">
+        <div class="form-group">
+            <label for="room" class="col-sm-2 control-label"></label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="room" placeholder="UserInfo">
+                <button type="submit" class="btn btn-default">대화하기</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="col-sm-offset-2 col-sm-10">
+
+            </div>
+        </div>
+    </form>
+    </div>
+
+    <div>
+    <form id=leave class="form-horizontal" align="center">
+                <button type="submit" class="btn btn-default">방 나가기</button>
+    </form>
+    </div>
+
+
+
+
+</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+<!--해당스크립트를 실행한다(라이브러리가 생성되는 개념?)-->
+<script src="http://192.168.244.100:3001/socket.io/socket.io.js"></script>
+<script>
+
+    //쿠키를 set get 하는 함수 (일 단위로 저장 시킨다)
+    function setCookie(cookie_name, value, days) {
+        var exdate = new Date();
+        exdate.setDate(exdate.getDate() + days);
+        // 설정 일수만큼 현재시간에 만료값으로 지정
+
+        var cookie_value = escape(value) + ((days == null) ? '' : ';    expires=' + exdate.toUTCString());
+        document.cookie = cookie_name + '=' + cookie_value;
+    }
+
+    function getCookie(cookie_name) {
+        var x, y;
+        var val = document.cookie.split(';');
+
+        for (var i = 0; i < val.length; i++) {
+            x = val[i].substr(0, val[i].indexOf('='));
+            y = val[i].substr(val[i].indexOf('=') + 1);
+            x = x.replace(/^\s+|\s+$/g, ''); // 앞과 뒤의 공백 제거하기
+            if (x == cookie_name) {
+                return unescape(y); // unescape로 디코딩 후 값 리턴
+            }
+        }
+    }
+</script>
+<script>
+    console.log("저장되어진 쿠키의 값은 : " + getCookie('myid'));
+    setCookie('myid',"");
+    console.log("쿠키값을 비우고 난 뒤의 값은 " + getCookie('myid'));
+
+    //yourname 이라는 변수를 담아서 검사하는 기능
+    var yourname;
+
+    //현재 페이지의 url 정보를 가지고 오게하기.
+    var newURL = window.location.search;
+    console.log("url정보"+newURL);
+
+
+    //아이디 정보를 담은  세션을 가지고 옴.
+    var sesseionid = sessionStorage.getItem("userid");
+    console.log("세션정보"+sesseionid);
+
+    //테스트
+    // var user = location.search.slice(1).split("&")[0].split("=")[1];
+    // console.log("추려낸 value값"+user);
+
+    //
+    var user = sesseionid;
+    var room = sesseionid;
+    var joinedroom;
+
+
+    //관리자 계정 유무 확인해서 폼 나태고 숨기기
+    $(document).ready(function() {
+        // test_btn 버튼의 쿠키값을 검사한다. -  값이 Y 인경우 testDiv 부분 open
+        if(user=="groovejumat@naver.com"){
+            $("#enter").show();
+            //버튼이미지 변경
+        } else {
+            $("#enter").hide();
+        }
+    });
+
+
+
+
+    //socket io 서버로 보내기 기능//
+    $(function() {
+        // 지정 namespace로 접속한다
+        var chat = io('http://192.168.244.100:3001/chat'),
+            news = io('/news');
+
+        chat.emit("NewUser", {
+            name: user,
+            room: user,
+        });
+
+
+        //지정한 room에 join시킨다.
+        chat.emit("join", {
+            name: user,
+            room: user,
+        });
+
+
+
+
+        // //emit을 통해서 메시지 정보를 보낸다.
+        // chat.emit("chat message", {
+        //     name: user,
+        //     room: user,
+        //     msg: "[채팅방에 접속 했습니다.]"
+        // });
+
+
+
+        $("#formA").submit(function(e) {
+            yourname = user;
+            joinedroom=$("#room").val();
+            e.preventDefault();
+
+            // 서버로 자신의 정보를 전송한다.
+            if(user!="groovejumat@naver.com"){
+                chat.emit("chat message", {
+                    name: user,
+                    room: user,
+                    msg: $("#msg").val()
+                });
+            }
+
+            else{
+/*                chat.emit("join", {
+                    name: user,
+                    room: $("#room").val(),
+                });*/
+
+                chat.emit("chat message", {
+                    name: user,
+                    room: $("#room").val(), //내가 본계정일 경우에는 채팅 메시지를 특정방을 선택해서 보낼 수 있다.
+                    msg: $("#msg").val()
+                });
+            }
+            document.getElementById("msg").value='';
+        });
+
+
+        //해당 버튼 실행시 특정 방에 참가.
+        $("#enter").submit(function(e) {
+            yourname = user;
+            e.preventDefault();
+            chat.emit("join", {
+                name: user,
+                room: $("#room").val(),
+            });
+            //document.getElementById("room").value='';
+        });
+
+        //해당 버튼 실행시 방에서 나감. (유저는 유저방에서 나가고, 관리자는 유저방에서 나가지도록 한다.)
+        $("#leave").submit(function(e) {
+            yourname = user;
+            e.preventDefault();
+
+            //참가했던 방에 들어왔으면 그방을 나가고,
+            if(user!="groovejumat@naver.com"){
+                chat.emit("leave", {
+                    name: user,
+                    room: user,
+                });
+                    self.close();   //자기자신창을 닫습니다.
+            }
+
+            //아니면 자기 자신이 들어가 있는 방이므로 자기 자신이 방을 나간다.
+            else{
+                chat.emit("leave", {
+                    name: user,
+                    room: joinedroom,
+                });
+            }
+        });
+
+
+
+        // 서버로부터의 메시지가 수신되면 (서버가 해당 클라이언트로 메시지를 보내면)
+        // "chat message가 이벤트의 이름이다."
+        chat.on("chat message", function(data) {
+
+            //내가 친 채팅 일때.
+            if(yourname==data.name){
+                //$("#chat").append($('<li>').text("[현재 당신의 채팅.]"));
+                // $("#chat").append($('<li>').text(yourname)); //현재 담긴 변수 출력.
+                $("#chat").append($('<li align="right" style="color:#000000;margin: 10px">').text("[당신의 메시지] :"+data.msg)); //메시지
+                //$("#chat").append($('<li>').text("[내 계정]:"+data.name));
+            }
+
+            //상대방이 친 채팅 일때.
+            else {
+                //$("#chat").append($('<li align="right">').text("[상대방의 채팅.]"));
+                // $("#chat").append($('<li align="right">').text(yourname)); //현재 담긴 변수 출력.
+                if(data.name=="groovejumat@naver.com"){
+                    $("#chat").append($('<li style="color:#000000;margin: 10px" >').text("[관리자] : " +data.msg)); //메시지
+                }
+                else{
+                    $("#chat").append($('<li style="color:#000000;margin: 10px" >').text("["+data.name+ "] : " +data.msg)); //메시지
+                }
+
+
+                //$("#chat").append($('<li>').text("[보낸 계정]:"+data.name));
+            }
+        });
+
+        // chat.on("joinroom", function(data) {
+        //     $("#chat").append($('<li>').text("[방에 들어왔습니다.]"));
+        // });
+
+        chat.on('alarm', function(data)  {
+            $('#chat').append($('<li align="center">').text(data));
+        });
+
+
+        // chat.on('connect',function(data){
+        //     chat.to(room).emit('newUser', data);
+        // })
+        //
+        // chat.on('update',function(data){
+        //   console.log(data);
+        // })
+
+    });
+</script>
+</div>
+</body>
+</html>
